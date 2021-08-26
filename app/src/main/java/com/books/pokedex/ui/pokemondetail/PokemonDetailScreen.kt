@@ -118,7 +118,7 @@ fun PokemonDetailTopSection(
             .background(
                 Brush.verticalGradient(
                     listOf(
-                        Color.Black,
+                        MaterialTheme.colors.background,
                         Color.Transparent
                     )
                 )
