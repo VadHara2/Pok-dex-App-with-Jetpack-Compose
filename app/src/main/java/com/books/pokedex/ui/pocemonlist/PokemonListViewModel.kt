@@ -14,7 +14,9 @@ import com.books.pokedex.util.Constants.PAGE_SIZE
 import com.books.pokedex.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import okhttp3.internal.wait
 import java.util.*
 import javax.inject.Inject
 
@@ -27,6 +29,7 @@ class PokemonListViewModel @Inject constructor(
     private var curPage = 0
 
     var pokemonList = mutableStateOf<List<PokedexListEntry>>(listOf())
+    val colorsMap = mutableStateOf<MutableMap<Int,Color>>(mutableMapOf())
     var loadError = mutableStateOf("")
     var isLoading = mutableStateOf(false)
     var endReached = mutableStateOf(false)
@@ -94,10 +97,11 @@ class PokemonListViewModel @Inject constructor(
         }
     }
 
-    fun calcDominantColor(bmp: Bitmap, onFinish: (Color) -> Unit) {
+    fun calcDominantColor(bmp: Bitmap, position:Int, onFinish: (Color) -> Unit) {
 
         Palette.from(bmp).generate { palette ->
             palette?.dominantSwatch?.rgb?.let { colorValue ->
+                colorsMap.value.put(position, Color(colorValue))
                 onFinish(Color(colorValue))
             }
         }

@@ -16,6 +16,7 @@ import androidx.compose.material.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Alignment.Companion.Center
 import androidx.compose.ui.Alignment.Companion.CenterHorizontally
 import androidx.compose.ui.Modifier
@@ -51,6 +52,7 @@ import com.books.pokedex.R
 import com.books.pokedex.data.models.PokedexListEntry
 import com.books.pokedex.ui.theme.RobotoCondensed
 import com.google.accompanist.coil.rememberCoilPainter
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import java.util.*
 
@@ -82,7 +84,6 @@ fun PokemonListScreen(
             ) {
                 viewModel.searchPokemonList(it)
             }
-            Spacer(modifier = Modifier.height(16.dp))
             PokemonList(navController = navController)
         }
     }
@@ -142,19 +143,65 @@ fun PokemonList(
     val loadError by remember { viewModel.loadError }
     val isLoading by remember { viewModel.isLoading }
     val isSearching by remember { viewModel.isSearching }
+    val colorsMap by remember { viewModel.colorsMap }
 
-    LazyColumn(contentPadding = PaddingValues(16.dp)) {
-        val itemCount = if (pokemonList.size % 2 == 0) {
-            pokemonList.size / 2
-        } else {
-            pokemonList.size / 2 + 1
-        }
-        items(itemCount) {
-            if (it >= itemCount - 1 && !endReached && !isLoading && !isSearching) {
-                viewModel.loadPokemonPaginated()
+    Box(modifier = Modifier.fillMaxSize()) {
+
+
+
+        LazyColumn(contentPadding = PaddingValues(16.dp)) {
+            val itemCount = if (pokemonList.size % 3 == 0) {
+                pokemonList.size / 3
+            } else {
+                pokemonList.size / 3 + 1
             }
-            PokedexRow(rowIndex = it, entries = pokemonList, navController = navController)
+            items(itemCount) {
+                if (it >= itemCount - 1 && !endReached && !isLoading && !isSearching) {
+                    
+                    viewModel.loadPokemonPaginated()
+                }
+
+                PokedexRow(
+                    rowIndex = it,
+                    entries = pokemonList,
+                    colors = colorsMap,
+                    navController = navController
+                )
+            }
         }
+
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Box(modifier = Modifier
+                .fillMaxWidth()
+                .height(8.dp)
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            MaterialTheme.colors.background,
+                            Color.Transparent
+                        )
+                    )
+                )
+            )
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(
+                                Color.Transparent,
+                                MaterialTheme.colors.background
+                            )
+                        )
+                    )
+            )
+        }
+
     }
 
     Box(
@@ -176,6 +223,7 @@ fun PokemonList(
 @Composable
 fun PokedexEntry(
     entry: PokedexListEntry,
+    color: Color? = null,
     navController: NavController,
     modifier: Modifier = Modifier,
     viewModel: PokemonListViewModel = hiltViewModel()
@@ -184,7 +232,9 @@ fun PokedexEntry(
     var dominantColor by remember {
         mutableStateOf(defaultDominantColor)
     }
-
+    color?.let {
+        dominantColor = color
+    }
 
     val imageLoader = ImageLoader(LocalContext.current)
 
@@ -193,21 +243,21 @@ fun PokedexEntry(
         .data(entry.imageUrl)
         .build()
 
-    val imagePainter = rememberCoilPainter(
-        request = request,
-        imageLoader = imageLoader
-    )
+    val imagePainter = rememberImagePainter(entry.imageUrl)
 
     LaunchedEffect(key1 = imagePainter) {
-        launch {
-            val result = (imageLoader.execute(request) as SuccessResult).drawable
-            val bitmap = (result as BitmapDrawable).bitmap
+        if (dominantColor == defaultDominantColor) {
+            async {
+                val result = (imageLoader.execute(request) as SuccessResult).drawable
+                val bitmap = (result as BitmapDrawable).bitmap
 
-            viewModel.calcDominantColor(bitmap){ color ->
-                dominantColor = color
-            }
+                viewModel.calcDominantColor(bitmap, entry.number - 1) { color ->
+                    dominantColor = color
+                }
 
+            }.await()
         }
+
     }
 
 
@@ -255,19 +305,33 @@ fun PokedexEntry(
 fun PokedexRow(
     rowIndex: Int,
     entries: List<PokedexListEntry>,
+    colors: Map<Int, Color>,
     navController: NavController
 ) {
     Column {
         Row {
             PokedexEntry(
-                entry = entries[rowIndex * 2],
+                entry = entries[rowIndex * 3],
+                color = colors[rowIndex * 3],
                 navController = navController,
                 modifier = Modifier.weight(1f)
             )
-            Spacer(modifier = Modifier.width(16.dp))
-            if (entries.size >= rowIndex * 2 + 2) {
+            Spacer(modifier = Modifier.width(8.dp))
+            if (entries.size > rowIndex * 3 + 1) {
                 PokedexEntry(
-                    entry = entries[rowIndex * 2 + 1],
+                    entry = entries[rowIndex * 3 + 1],
+                    color = colors[rowIndex * 3 + 1],
+                    navController = navController,
+                    modifier = Modifier.weight(1f)
+                )
+            } else {
+                Spacer(modifier = Modifier.weight(1f))
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            if (entries.size > rowIndex * 3 + 2) {
+                PokedexEntry(
+                    entry = entries[rowIndex * 3 + 2],
+                    color = colors[rowIndex * 3 + 2],
                     navController = navController,
                     modifier = Modifier.weight(1f)
                 )
